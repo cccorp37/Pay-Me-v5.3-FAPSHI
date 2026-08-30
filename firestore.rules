@@ -1,0 +1,81 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Hardened validation for Transaction
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['reference', 'phone', 'amount', 'currency', 'country', 'status', 'createdAt', 'userId']) &&
+             data.reference is string && data.reference.size() <= 100 &&
+             data.phone is string && data.phone.size() <= 30 &&
+             data.amount is number && data.amount > 0 &&
+             data.currency is string && data.currency.size() >= 2 && data.currency.size() <= 10 &&
+             data.country is string && data.country.size() <= 100 &&
+             data.status in ['pending', 'success', 'failed'] &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.createdAt is timestamp &&
+             (!('gatewayRef' in data) || data.gatewayRef is string) &&
+             (!('provider' in data) || data.provider is string) &&
+             (!('failReason' in data) || data.failReason is string) &&
+             (!('completedAt' in data) || data.completedAt is timestamp) &&
+             (!('kycFrontUrl' in data) || data.kycFrontUrl is string) &&
+             (!('kycBackUrl' in data) || data.kycBackUrl is string) &&
+             (!('kycSelfieUrl' in data) || data.kycSelfieUrl is string);
+    }
+
+    // Hardened validation for AdminConfig
+    function isValidAdminConfig(data) {
+      return data.keys().hasAll(['whatsappLink', 'accessCode']) &&
+             data.whatsappLink is string && data.whatsappLink.size() <= 500 &&
+             data.accessCode is string && data.accessCode.size() <= 50 &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // --- Collections ---
+
+    match /transactions/{transactionId} {
+      // Allow creation of payment transaction
+      allow create: if isValidTransaction(incoming()) && isValidId(transactionId);
+      
+      // Update protection: Reference and userId must match
+      allow update: if (
+        isValidTransaction(incoming()) &&
+        incoming().reference == existing().reference &&
+        incoming().userId == existing().userId
+      );
+
+      // Read & delete operations
+      allow get: if true;
+      allow list: if true;
+      allow delete: if true;
+    }
+
+    match /admin_config/{configId} {
+      allow read: if true;
+      allow create, update: if isValidAdminConfig(incoming()) && isValidId(configId);
+      allow delete: if false;
+    }
+  }
+}

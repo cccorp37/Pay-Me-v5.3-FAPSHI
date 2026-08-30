@@ -1,0 +1,142 @@
+{
+  "title": "<p style='text-align:center'>SoleasPay V3 API Documentation <span style='float:right'>Update on Monday, 16 Dec 2024</span></p>",
+  "logo": "images/logo.png",
+  "footer": "<strong>🌭 SoleasPay</strong> powered by <a href='https://mysoleas.com'>Mysoleas</a>.<br /> To get more help about our API don't hesistate to <a href='https://soleaspay.com'>contact us here</a>",
+  "context": "SoleasPay is a payment gateway allowing to collect and emit payments on web and mobile applications of their customers through their mobile money wallet, bank and even crypto accounts.",
+  "base":{
+    "url": "https://soleaspay.com",
+    "info": "SoleasPay Endpoints support GET, POST, PUT or DELETE Requests."
+  },
+  "auth": "SoleasPay API require authenticated token in all header's request.<br /> Depending on the endpoint prefixe, they accept : <ul><li><strong>Bearer Token</strong> : For all endpoints started by /api/action</li><li><strong>x-api-key</strong> : For all endpoints started by /api/agent</li></ul>",
+  "limits": "The number of request is limited to 500 requests per hour, per IP address. If you need a higher limit, please <a href='https://soleaspay.com'>contact us</a>.\nAll IPs sending excessive requests will be down.",
+  "callback": {
+    "info": "In asynchronous system, all requests will be processed and final state will be share to your application through your callback endpoint. <br/><br/> For security reason, all our request must contain a <strong>x-private-key</strong> header. its value is the hash 512 of your secret hash received after configuring your callback endpoint",
+    "data" : "example-responses/callback.txt"
+  },
+  "contact": {
+    "link": "https://soleaspay.com",
+    "info": "If you need help using this API, please don't hesistate to contact us by links provided."
+  },
+  "endpoints":[
+    {
+      "name": "Get Bearer Token",
+      "text": "The life cycle of the generate token is 60 minutes <br /> <strong>Parameters (JSON) :</strong><br /> * <em>public_apikey(string)</em> : Your x-api-key available on your SoleasPay dashboard. <br /> * <em>private_secretkey(string)</em> : Your private secret key available on your SoleasPay dashboard",
+      "url": "/api/action/auth",
+      "method": "post",
+      "sample": {
+        "example": "example-responses/req-token.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-token.txt"
+      }
+    },
+    {
+      "name": "Get available services",
+      "text": "updated list of our supported services.",
+      "url": "/api/services-list",
+      "method": "Get",
+      "sample": {
+        "example": "example-responses/req-services.txt"
+      },"response": {
+        "format": "json",
+        "example": "example-responses/rep-services.txt"
+      }
+    },
+    {
+      "name": "Collect payment (Pay-In)",
+      "text": "To collect payment by api call. <br /> <strong>Parameters (in Headers) :</strong><br />* <em>x-api-key</em> : your apikey <br /> * <em>operation(integer)</em> : 2 <br />* <em>service(integer)</em> : The service which one your customer will pay<br />*<em>otp(integer)</em> : For orange money service, you should provide otp code in hearders or not depending of your logic.<br /> <strong>Parameters (in JSON body) :</strong><br />* <em>wallet(string)</em> : the wallet where we proceed the payment <br /> * <em>amount(float)</em> : amount of current payment<br /> * <em>currency(string)</em> : it is the currency in which you proceed the current payment<br /> * <em>orderId(string)</em> : The unique order id on your apps for current payment<br /> * <em>description(string)</em> : A short description of current payment<br />* <em>payer(string)</em> : The name of your cystomer<br /> * <em>payerEmail(string)</em> : Customer email to receive payment receipt after confirmation<br/> * <em>successUrl(string)</em> : the url to notice when payment success.<br /> * <em>failureUrl(string)</em> : The failure url",
+      "url": "/api/agent/bills/v3",
+      "method": "post",
+      "sample": {
+        "example": "example-responses/req-payin.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-payin.txt"
+      }
+    },
+    {
+      "name": "Disburse payment (Pay-out)",
+      "text": "Withdraw cash from your SoleasPay account to your personnal account. <br /> <strong>Parameters (Headers) :</strong><br />* <em>Authorization</em> : Bearer Token. <br /> * <em>operation(int)</em> : 4 <br />* <em>service(int)</em> : The service which one your customer will receive fund<br /> <strong>Parameters (JSON) :</strong><br />* <em>wallet(string)</em> : the wallet where we proceed the payment <br />* <em>amount(float)</em> : amount to withdraw<br /> * <em>currency(string)</em> : optional, it is the currency in which you proceed the current transaction",
+      "url": "/api/action/account/withdraw",
+      "method": "post",
+      "sample": {
+        "example": "example-responses/req-payout.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-payout.txt"
+      }
+    },
+    {
+      "name": "Transfert funds",
+      "text": "Transfert your balance to other SoleasPay user. <br /> <strong>Parameters (Headers) :</strong><br />* <em>Authorization</em> : Bearer Token. <br /> * <em>operation(int)</em> : 5 <br />* <em>security (bool)</em> :  optional, define if transfert is secure<br /> * <em>code(string)</em> : The transfert code to send to the receiver to benefit transfert <br />* <em>duration(int)</em> : The security duration in days for current transfert<br />* <em>receiver(string)</em> : The transfert receiver matricule.<br /> <strong>Parameters (JSON) :</strong><br />* <em>amount(float)</em> : amount to transfert<br /> * <em>currency(string)</em> : optional, it is the currency in which you proceed the current transfert",
+      "url": "/api/user/transfert",
+      "method": "post",
+      "sample": {
+        "example": "example-responses/req-transfert.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-transfert.txt"
+      }
+    },
+    {
+      "name": "Verify Transaction",
+      "text": "Check if payment is validate by customer. <br /><strong>Parameters (in Headers) :</strong><br />* <em>x-api-key</em> : your apikey <br /> <strong>Parameters (in URL) :</strong><br />* <em>orderId(string)</em> : your unique order id for checking Payment, <br />* <em>payId(string)</em> :the SoleasPay Payment reference. You receive it in the response of Pay-In API Call",
+      "url": "/api/agent/verif-pay",
+      "method": "get",
+      "sample": {
+        "example": "example-responses/req-verif-pay.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-verif-pay.txt"
+      }
+    },
+    {
+      "name": "Get transaction details",
+      "text": "To get detail of one specific payment. <br /> <strong>Parameters (Headers) :</strong><br />* <em>Authorization</em> : Bearer Token.<br /> <strong>Parameters (URL) :</strong><br />* <em>document</em> : the internal transaction reference.",
+      "url": "/api/user/history/{document}",
+      "method": "get",
+      "sample": {
+        "example": "example-responses/req-history.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-history.txt"
+      }
+    },
+    {
+      "name": "Converter",
+      "text": "use our free converter to get current rate of most supported currency by providing it's ISO 4217 code. <br /> <strong>Parameters (URL) :</strong><br /> * <em>amount(float)</em> : The amount to convert. <br /> * <em>from(string)</em> : origin currency from provide amount. <br/ > * <em>to(string)</em> : The currency where you want to convert the providing amount",
+      "url": "/api/convert",
+      "method": "get",
+      "sample": {
+        "example": "example-responses/req-convert.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-convert.txt"
+      }
+    }
+    
+  ],
+  "errors":[
+    {
+      "name": "Common Code",
+      "text": "use our free converter to get current rate of most supported currency by providing it's ISO 4217 code. <br /> <strong>Parameters (URL) :</strong><br /> * <em>amount(float)</em> : The amount to convert. <br /> * <em>devise(string)</em> : origin currency from provide amount. <br/ > * <em>out(string)</em> : The out currency where you want to convert the providing amount",
+      "url": "/api/convert",
+      "method": "get",
+      "sample": {
+        "example": "example-responses/req-convert.txt"
+      },
+      "response": {
+        "format": "json",
+        "example": "example-responses/rep-convert.txt"
+      }
+    }
+  ]
+}
+

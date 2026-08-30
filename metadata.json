@@ -1,0 +1,7 @@
+{
+  "name": "Pay-Me V4.0 With FAPSHI",
+  "description": "Mini Application de Paiement — Offre Prêt Tik Tak+ d\u0027Orange Bank",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
