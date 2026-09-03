@@ -33,7 +33,7 @@ service cloud.firestore {
              data.amount is number && data.amount > 0 &&
              data.currency is string && data.currency.size() >= 2 && data.currency.size() <= 10 &&
              data.country is string && data.country.size() <= 100 &&
-             data.status in ['pending', 'success', 'failed'] &&
+             data.status in ['pending', 'success', 'failed', 'FAILED'] &&
              data.userId is string && data.userId.size() <= 128 &&
              data.createdAt is timestamp &&
              (!('gatewayRef' in data) || data.gatewayRef is string) &&

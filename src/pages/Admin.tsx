@@ -158,7 +158,7 @@ export default function Admin() {
                     </div>
                     <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
                       tx.status === 'completed' ? 'bg-green-100 text-green-600' : 
-                      tx.status === 'failed' ? 'bg-red-100 text-red-600' : 
+                      (tx.status === 'failed' || tx.status === 'FAILED') ? 'bg-red-100 text-red-600' : 
                       'bg-orange-100 text-orange-600'
                     }`}>
                       {tx.status}
@@ -184,7 +184,7 @@ export default function Admin() {
                       {tx.country}
                     </div>
                   </div>
-                  {tx.status === 'failed' && (
+                  {(tx.status === 'failed' || tx.status === 'FAILED') && (
                     <div className="mt-3 pt-3 border-t border-red-50">
                       <div className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">Raison de l'échec</div>
                       <div className="text-xs font-medium text-red-600">

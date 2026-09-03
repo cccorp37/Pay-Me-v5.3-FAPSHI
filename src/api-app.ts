@@ -111,6 +111,10 @@ router.post("/initiate-payment", async (req, res) => {
         }
       } catch (e) {}
 
+      if (typeof errorMsg === 'object') {
+          try { errorMsg = JSON.stringify(errorMsg); } catch(e) {}
+      }
+
       return res.status(chargeRes.status).json({ 
         error: `Erreur Fapshi (${chargeRes.status}): ${errorMsg}`,
         details: errorMsg
@@ -171,7 +175,11 @@ router.get("/payment-status/:reference", async (req, res) => {
         currentStatus = 'success';
       } else if (['FAILED', 'EXPIRED', 'CANCELED', 'CANCELLED'].includes(hookStatus)) {
         currentStatus = 'failed';
-        failReason = hookData.message || 'Transaction non complétée';
+        let hMsg = hookData.message || 'Transaction non complétée';
+        if (typeof hMsg === 'object') {
+           try { hMsg = JSON.stringify(hMsg); } catch(e) {}
+        }
+        failReason = String(hMsg);
       }
     } else if (provider === 'fapshi' && gatewayRef) {
       const fapshiApiUser = (process.env.FAPSHI_API_USER || '7cad0afd-813d-41b7-b31f-7513a0ff3ceb').trim();
@@ -197,7 +205,11 @@ router.get("/payment-status/:reference", async (req, res) => {
                currentStatus = 'success';
              } else if (['FAILED', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(rawStatus)) {
                currentStatus = 'failed';
-               failReason = statusData?.message || (rawStatus === 'EXPIRED' ? 'Session de paiement expirée' : 'Paiement échoué');
+               let fMsg = statusData?.message || (rawStatus === 'EXPIRED' ? 'Session de paiement expirée' : 'Paiement échoué');
+               if (typeof fMsg === 'object') {
+                 try { fMsg = JSON.stringify(fMsg); } catch(e) {}
+               }
+               failReason = String(fMsg);
              } else {
                currentStatus = 'pending';
              }

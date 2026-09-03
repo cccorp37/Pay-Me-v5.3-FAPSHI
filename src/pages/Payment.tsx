@@ -92,7 +92,11 @@ export default function Payment() {
         setIsProcessing(false);
         navigate('/success', { state: { transaction: { ...fullPaymentData, ...(statusData.transaction || {}) } } });
       } else if (statusData.status === 'failed' || statusData.status === 'canceled') {
-        const reason = statusData.reason || 'Paiement échoué ou annulé';
+        let reason = statusData.reason || 'Paiement échoué ou annulé';
+        if (typeof reason === 'object') {
+          try { reason = JSON.stringify(reason); } catch (e) { reason = 'Paiement échoué'; }
+        }
+        reason = String(reason);
         try {
           await setDoc(doc(db, 'transactions', reference), { status: 'failed', failReason: reason }, { merge: true });
         } catch (e) {}
@@ -150,7 +154,16 @@ export default function Payment() {
       const data = await response.json();
 
       if (!response.ok) {
-        const errorMsg = data.error || data.details || 'Payment initiation failed';
+        let errorMsg = data.error || data.details || 'Payment initiation failed';
+        if (typeof errorMsg === 'object') {
+          try {
+             errorMsg = JSON.stringify(errorMsg);
+          } catch (e) {
+             errorMsg = 'Payment initiation failed';
+          }
+        }
+        errorMsg = String(errorMsg);
+        
         if (data.errorCode === 'ERR_INSUFFICIENT_BALANCE' || errorMsg.toLowerCase().includes('solde') || errorMsg.toLowerCase().includes('insufficient')) {
             setError('solde insuffisant');
         } else if (data.errorCode === 'ERR_INVALID_CONFIG') {
@@ -225,7 +238,11 @@ export default function Payment() {
             navigate('/success', { state: { transaction: fullTransaction } });
             return;
           } else if (statusData.status === 'failed' || statusData.status === 'canceled') {
-            const reason = statusData.reason || 'Paiement échoué ou annulé';
+            let reason = statusData.reason || 'Paiement échoué ou annulé';
+            if (typeof reason === 'object') {
+              try { reason = JSON.stringify(reason); } catch (e) { reason = 'Paiement échoué'; }
+            }
+            reason = String(reason);
             try {
               await setDoc(doc(db, 'transactions', reference), { status: 'failed', failReason: reason }, { merge: true });
             } catch (error) {
