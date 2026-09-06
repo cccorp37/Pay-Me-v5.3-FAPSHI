@@ -34,6 +34,8 @@ export default function Success() {
 
   if (!transaction) return null;
 
+  const normalizedWhatsapp = whatsappLink ? (whatsappLink.startsWith('http') ? whatsappLink : `https://${whatsappLink}`) : '';
+
   const generateReceipt = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
@@ -123,7 +125,7 @@ export default function Success() {
             
             {whatsappLink && (
               <a
-                href={whatsappLink}
+                href={normalizedWhatsapp}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full flex items-center justify-center bg-white text-[#1A1A1A] border-2 border-gray-100 font-black py-5 px-6 rounded-sm hover:border-gray-200 transition-all uppercase tracking-[0.2em] text-xs"
@@ -135,7 +137,7 @@ export default function Success() {
         </div>
 
         <p className="text-sm text-gray-500 text-center px-6 leading-relaxed font-medium">
-          {t.success.whatsappPrompt} <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="font-black text-[#E8620A] underline underline-offset-4 decoration-2">{t.success.whatsappLinkText}</a>
+          {t.success.whatsappPrompt} <a href={normalizedWhatsapp} target="_blank" rel="noopener noreferrer" className="font-black text-[#E8620A] underline underline-offset-4 decoration-2">{t.success.whatsappLinkText}</a>
         </p>
       </main>
       

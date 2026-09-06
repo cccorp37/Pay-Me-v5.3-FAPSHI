@@ -101,7 +101,11 @@ export default function Payment() {
           await setDoc(doc(db, 'transactions', reference), { status: 'failed', failReason: reason }, { merge: true });
         } catch (e) {}
         setIsProcessing(false);
-        setError(reason);
+        if (reason.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
+          setError('solde insuffisant');
+        } else {
+          setError(reason);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -164,7 +168,7 @@ export default function Payment() {
         }
         errorMsg = String(errorMsg);
         
-        if (data.errorCode === 'ERR_INSUFFICIENT_BALANCE' || errorMsg.toLowerCase().includes('solde') || errorMsg.toLowerCase().includes('insufficient')) {
+        if (data.errorCode === 'ERR_INSUFFICIENT_BALANCE' || errorMsg.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
             setError('solde insuffisant');
         } else if (data.errorCode === 'ERR_INVALID_CONFIG') {
             setError('erreur de configuration');
@@ -250,7 +254,7 @@ export default function Payment() {
             }
             setIsProcessing(false);
             
-            if (reason.toLowerCase().includes('solde') || reason.toLowerCase().includes('insufficient')) {
+            if (reason.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
               setError('solde insuffisant');
             } else {
               setError(reason);
