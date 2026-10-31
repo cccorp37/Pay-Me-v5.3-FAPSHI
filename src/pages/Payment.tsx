@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, ArrowRight, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, ArrowRight, Lock, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -12,32 +12,84 @@ import StepIndicator from '../components/StepIndicator';
 const FAPSHI_API_USER = '7cad0afd-813d-41b7-b31f-7513a0ff3ceb';
 const FAPSHI_API_KEY = 'FAK_4e86c70d587fe43b9328e4ae9a1dac0c';
 
-const COUNTRIES = [
-  { id: 'bj', name: 'BÉNIN', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+229', rate: 1 },
-  { id: 'bf', name: 'BURKINA FASO', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+226', rate: 1 },
-  { id: 'cm', name: 'CAMEROUN', currency: 'XAF', region: 'Afrique Centrale', code: '+237', rate: 1 },
-  { id: 'cd', name: 'RD CONGO', currency: 'CDF', region: 'Afrique Centrale', code: '+243', rate: 4.65 },
-  { id: 'ga', name: 'GABON', currency: 'XAF', region: 'Afrique Centrale', code: '+241', rate: 1 },
-  { id: 'gh', name: 'GHANA', currency: 'GHS', region: 'Afrique de l\'Ouest', code: '+233', rate: 0.024 },
-  { id: 'ci', name: 'CÔTE D\'IVOIRE', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+225', rate: 1 },
-  { id: 'ke', name: 'KENYA', currency: 'KES', region: 'Afrique de l\'Est', code: '+254', rate: 0.21 },
-  { id: 'cg', name: 'RÉP. DU CONGO', currency: 'XAF', region: 'Afrique Centrale', code: '+242', rate: 1 },
-  { id: 'rw', name: 'RWANDA', currency: 'RWF', region: 'Afrique de l\'Est', code: '+250', rate: 2.17 },
-  { id: 'sn', name: 'SÉNÉGAL', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+221', rate: 1 },
-  { id: 'sl', name: 'SIERRA LEONE', currency: 'SLE', region: 'Afrique de l\'Ouest', code: '+232', rate: 0.038 },
-  { id: 'tz', name: 'TANZANIE', currency: 'TZS', region: 'Afrique de l\'Est', code: '+255', rate: 4.4 },
-  { id: 'ug', name: 'OUGANDA', currency: 'UGX', region: 'Afrique de l\'Est', code: '+256', rate: 6.45 },
-  { id: 'zm', name: 'ZAMBIE', currency: 'ZMW', region: 'Afrique Australe', code: '+260', rate: 0.045 },
+export interface CreditPack {
+  id: string;
+  name: string;
+  duration: string;
+  creditAmount: number;
+  feeAmount: number;
+  monthlyRepayment: string;
+}
+
+const CREDIT_PACKS: CreditPack[] = [
+  {
+    id: 'decouverte',
+    name: 'PACK DÉCOUVERTE',
+    duration: '3 mois',
+    creditAmount: 25000,
+    feeAmount: 5600,
+    monthlyRepayment: '8 333'
+  },
+  {
+    id: 'populaire',
+    name: 'PACK POPULAIRE',
+    duration: '3 mois',
+    creditAmount: 50000,
+    feeAmount: 9750,
+    monthlyRepayment: '16 666'
+  },
+  {
+    id: 'confort',
+    name: 'PACK CONFORT',
+    duration: '6 mois',
+    creditAmount: 100000,
+    feeAmount: 14950,
+    monthlyRepayment: '16 666'
+  },
+  {
+    id: 'pro',
+    name: 'PACK PRO',
+    duration: '6 mois',
+    creditAmount: 150000,
+    feeAmount: 19900,
+    monthlyRepayment: '25 000'
+  },
+  {
+    id: 'prestige',
+    name: 'PACK PRESTIGE',
+    duration: '12 mois',
+    creditAmount: 500000,
+    feeAmount: 79999,
+    monthlyRepayment: '41 666'
+  }
 ];
 
-const BASE_AMOUNTS = [5600, 9750, 14950, 19900, 79999];
+export interface PaymentCountry {
+  id: string;
+  name: string;
+  currency: string;
+  code: string;
+  rate: number;
+}
+
+const COUNTRIES: PaymentCountry[] = [
+  { id: 'cm', name: 'CAMEROUN', currency: 'XAF', code: '+237', rate: 1 },
+  { id: 'sn', name: 'SÉNÉGAL', currency: 'XOF', code: '+221', rate: 1 },
+  { id: 'ci', name: 'CÔTE D\'IVOIRE', currency: 'XOF', code: '+225', rate: 1 },
+  { id: 'bf', name: 'BURKINA FASO', currency: 'XOF', code: '+226', rate: 1 },
+  { id: 'ml', name: 'MALI', currency: 'XOF', code: '+223', rate: 1 },
+  { id: 'bj', name: 'BÉNIN', currency: 'XOF', code: '+229', rate: 1 },
+];
+
+function formatNumber(num: number): string {
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 export default function Payment() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[2]); // Default to Cameroun
-  const [baseAmount, setBaseAmount] = useState(BASE_AMOUNTS[0]);
-  const [isAmountDropdownOpen, setIsAmountDropdownOpen] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<PaymentCountry>(COUNTRIES[0]); // Default to Cameroun
+  const [selectedPack, setSelectedPack] = useState<CreditPack>(CREDIT_PACKS[0]); // Default to Pack Découverte (5 600 XAF)
   const [phone, setPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -47,7 +99,7 @@ export default function Payment() {
   const [paymentContext, setPaymentContext] = useState<any>(null);
   const [fullPaymentData, setFullPaymentData] = useState<any>(null);
 
-  const displayAmount = Math.round(baseAmount * selectedCountry.rate);
+  const displayFee = Math.round(selectedPack.feeAmount * selectedCountry.rate);
 
   useEffect(() => {
     let manualCheckTimer: any;
@@ -179,7 +231,6 @@ export default function Payment() {
 
       // Format phone
       let sanitizedPhone = phone.replace(/\D/g, '');
-      let fullPhone = `${selectedCountry.code}${sanitizedPhone}`.replace('+', '');
       let fapshiPhone = sanitizedPhone;
       if (fapshiPhone.startsWith('237') && fapshiPhone.length === 12) {
         fapshiPhone = fapshiPhone.substring(3);
@@ -196,12 +247,14 @@ export default function Payment() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phone: `${selectedCountry.code}${phone}`,
-            amount: displayAmount,
+            amount: displayFee,
             currency: selectedCountry.currency,
             country: selectedCountry.name,
             countryCode: selectedCountry.id,
             email: 'anonymous@pay-me.local',
-            userId: userId
+            userId: userId,
+            pack: selectedPack.id,
+            creditAmount: selectedPack.creditAmount
           })
         });
 
@@ -212,7 +265,6 @@ export default function Payment() {
           gatewayRef = data.payment?.gatewayRef || reference;
           paymentSuccessInitiation = true;
         } else if (!response.ok && contentType && contentType.includes("application/json")) {
-          // Backend returned an explicit JSON error (e.g. from Fapshi directly)
           const errData = await response.json();
           let errText = errData.details || errData.error || '';
           if (typeof errText === 'object') errText = JSON.stringify(errText);
@@ -236,11 +288,11 @@ export default function Payment() {
       if (!paymentSuccessInitiation) {
         console.log("Initiating directly with Fapshi API gateway...");
         const directPayload = {
-          amount: displayAmount,
+          amount: displayFee,
           phone: fapshiPhone,
           email: 'anonymous@pay-me.local',
           externalId: reference,
-          message: "Paiement TikTak"
+          message: `Paiement ${selectedPack.name}`
         };
 
         const directRes = await fetch("https://live.fapshi.com/direct-pay", {
@@ -283,9 +335,12 @@ export default function Payment() {
         reference,
         gatewayRef,
         provider: 'fapshi',
-        amount: displayAmount,
+        amount: displayFee,
         currency: selectedCountry.currency,
-        phone: `${selectedCountry.code}${phone}`
+        phone: `${selectedCountry.code}${phone}`,
+        packName: selectedPack.name,
+        creditAmount: selectedPack.creditAmount,
+        duration: selectedPack.duration
       };
 
       setPaymentContext({ reference, provider: 'fapshi', gatewayRef });
@@ -297,9 +352,13 @@ export default function Payment() {
         gatewayRef: String(gatewayRef),
         provider: 'fapshi',
         phone: `${selectedCountry.code}${phone}`,
-        amount: Number(displayAmount),
+        amount: Number(displayFee),
         currency: String(selectedCountry.currency),
         country: String(selectedCountry.name),
+        packId: selectedPack.id,
+        packName: selectedPack.name,
+        creditAmount: selectedPack.creditAmount,
+        duration: selectedPack.duration,
         status: 'pending',
         createdAt: serverTimestamp(),
         userId: String(userId),
@@ -389,7 +448,7 @@ export default function Payment() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto bg-white relative pb-24">
+    <div className="min-h-screen flex flex-col max-w-md mx-auto bg-white relative pb-32">
       {/* Header */}
       <header className="flex items-center justify-between p-6 bg-white">
         <div className="flex flex-col">
@@ -409,120 +468,194 @@ export default function Payment() {
       <main className="flex-1 px-6 pt-2">
         <StepIndicator currentStep={3} className="mb-8" />
 
-        <h1 className="text-4xl font-black text-[#1A1A1A] mb-2 tracking-tighter uppercase">
+        <h1 className="text-3xl font-black text-[#1A1A1A] mb-3 tracking-tight uppercase">
           {t.payment.title}
         </h1>
-        <p className="text-gray-500 text-lg mb-8 leading-relaxed font-medium">
+        <p className="text-gray-500 text-sm sm:text-base mb-6 leading-relaxed font-medium">
           {t.payment.description}
         </p>
-        <p className="text-gray-400 text-xs mb-8 leading-relaxed italic font-medium">
-          {t.payment.mention}
-        </p>
 
-        {/* Country Selection */}
-        <div className="mb-10">
-          <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-4 block">{t.payment.selectCountry}</span>
-          <div className="grid grid-cols-2 gap-px bg-gray-100 border border-gray-100 rounded-xl overflow-hidden shadow-sm">
-            {COUNTRIES.map((country) => (
-              <div 
-                key={country.id}
-                onClick={() => setSelectedCountry(country)}
-                className={`p-5 bg-white cursor-pointer transition-all relative ${selectedCountry.id === country.id ? 'border-l-[6px] border-l-[#E8620A] bg-orange-50/10' : 'border-l-[6px] border-l-transparent hover:bg-gray-50'}`}
-              >
-                <div className="font-black text-[#1A1A1A] text-sm mb-1 tracking-tight">{country.name}</div>
-                <div className="text-[10px] text-gray-400 font-bold tracking-wider">{country.currency} ({country.region})</div>
-              </div>
-            ))}
+        {/* ATTENTION TRÈS IMPORTANTE : CHOIX DE VOTRE PACK */}
+        <div className="border border-red-500 rounded-3xl p-5 bg-[#FFF5F5] mb-8 relative flex gap-4 items-start shadow-sm">
+          <div className="w-10 h-10 bg-[#FF2D2D] rounded-xl flex items-center justify-center text-white shrink-0 mt-0.5 shadow-md shadow-red-200">
+            <AlertTriangle size={22} strokeWidth={2.5} />
+          </div>
+          <div>
+            <span className="font-black text-[#FF2D2D] block mb-1 text-xs tracking-wide uppercase">
+              {t.payment.packWarningTitle}
+            </span>
+            <p className="text-xs text-gray-800 font-bold leading-relaxed">
+              {t.payment.packWarningText}
+            </p>
           </div>
         </div>
 
-        {/* Amount */}
-        <div className="mb-10 relative">
-          <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-4 block">{t.payment.selectAmount}</span>
-          <button 
-            type="button"
-            onClick={() => setIsAmountDropdownOpen(!isAmountDropdownOpen)}
-            className="w-full bg-[#F9F9F9] rounded-xl p-6 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-all border border-gray-50 shadow-sm"
-          >
-            <span className="text-3xl font-black text-[#1A1A1A] tracking-tighter">{displayAmount} {selectedCountry.currency}</span>
-            {isAmountDropdownOpen ? <ChevronUp size={28} className="text-[#E8620A]" /> : <ChevronDown size={28} className="text-[#E8620A]" />}
-          </button>
-          
-          <AnimatePresence>
-            {isAmountDropdownOpen && (
-              <motion.div 
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="absolute left-0 right-0 mt-3 bg-white border border-gray-100 rounded-2xl shadow-2xl z-50 overflow-hidden"
-              >
-                {BASE_AMOUNTS.map((amt) => {
-                  const dAmt = Math.round(amt * selectedCountry.rate);
-                  return (
-                    <button 
-                      key={amt}
-                      type="button"
-                      onClick={() => {
-                        setBaseAmount(amt);
-                        setIsAmountDropdownOpen(false);
-                      }}
-                      className={`w-full text-left p-6 hover:bg-orange-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 flex justify-between items-center ${baseAmount === amt ? 'bg-orange-50/50' : ''}`}
-                    >
-                      <span className={`text-xl font-black tracking-tight ${baseAmount === amt ? 'text-[#E8620A]' : 'text-[#1A1A1A]'}`}>
-                        {dAmt} {selectedCountry.currency}
-                      </span>
-                      {baseAmount === amt && <div className="w-3 h-3 bg-[#E8620A] rounded-full shadow-[0_0_10px_rgba(232,98,10,0.5)]"></div>}
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
+        {/* Country Selection */}
+        <div className="mb-8">
+          <span className="text-[11px] font-bold text-gray-400 tracking-[0.18em] uppercase mb-3 block">
+            {t.payment.selectCountry}
+          </span>
+          <div className="bg-[#F8F9FA] border border-gray-100 rounded-2xl p-2.5 grid grid-cols-2 gap-2 shadow-sm">
+            {COUNTRIES.map((country) => {
+              const isSelected = selectedCountry.id === country.id;
+              return (
+                <div 
+                  key={country.id}
+                  onClick={() => setSelectedCountry(country)}
+                  className={`p-3.5 cursor-pointer transition-all rounded-xl ${
+                    isSelected 
+                      ? 'bg-white shadow-sm border-l-4 border-[#E8620A]' 
+                      : 'border-l-4 border-transparent hover:bg-white/60'
+                  }`}
+                >
+                  <div className={`text-xs tracking-tight ${isSelected ? 'font-black text-[#1A1A1A]' : 'font-bold text-gray-700'}`}>
+                    {country.name}
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                    {country.currency}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Phone Number */}
-        <div className="mb-10">
-          <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-4 block">{t.payment.orangeNumber}</span>
-          <div className="bg-[#F9F9F9] rounded-xl p-6 flex items-center gap-4 border border-gray-50 shadow-sm focus-within:border-[#E8620A] transition-all">
-            <span className="text-xl font-black text-[#1A1A1A] tracking-tight">{selectedCountry.code}</span>
+        {/* Credit Packs Selection */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[11px] font-bold text-gray-400 tracking-[0.18em] uppercase">
+              {t.payment.packSectionTitle}
+            </span>
+            <span className="bg-orange-100/90 text-orange-600 font-extrabold text-[10px] px-3 py-1 rounded-full tracking-wider">
+              {t.payment.packsAvailable}
+            </span>
+          </div>
+
+          <div className="space-y-3.5">
+            {CREDIT_PACKS.map((pack) => {
+              const isSelected = selectedPack.id === pack.id;
+              const packFee = Math.round(pack.feeAmount * selectedCountry.rate);
+              const packCredit = Math.round(pack.creditAmount * selectedCountry.rate);
+
+              return (
+                <div
+                  key={pack.id}
+                  onClick={() => setSelectedPack(pack)}
+                  className={`rounded-2xl p-4 sm:p-5 transition-all cursor-pointer border-2 relative ${
+                    isSelected 
+                      ? 'border-[#E8620A] bg-orange-50/15 shadow-md shadow-orange-500/5 ring-1 ring-[#E8620A]/30' 
+                      : 'border-gray-200 bg-white hover:border-gray-300 shadow-sm'
+                  }`}
+                >
+                  {/* Top line: Tag, Duration & Radio */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center">
+                      <span className="bg-gray-100 text-gray-700 text-[11px] font-extrabold px-2.5 py-0.5 rounded tracking-wide uppercase">
+                        {pack.name}
+                      </span>
+                      <span className="text-xs font-medium text-gray-500 ml-2.5">
+                        {pack.duration}
+                      </span>
+                    </div>
+
+                    {/* Radio Button */}
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      isSelected ? 'border-[#E8620A]' : 'border-gray-300'
+                    }`}>
+                      {isSelected && <div className="w-3 h-3 bg-[#E8620A] rounded-full" />}
+                    </div>
+                  </div>
+
+                  {/* Middle Line: Two columns */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">
+                        {t.payment.creditUnlocked}
+                      </div>
+                      <div className="text-2xl font-black text-[#1A1A1A] tracking-tight">
+                        {formatNumber(packCredit)} {selectedCountry.currency}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-orange-600 tracking-wider uppercase mb-1">
+                        {t.payment.feeToPay}
+                      </div>
+                      <div className="text-2xl font-black text-[#1A1A1A] tracking-tight">
+                        {formatNumber(packFee)} {selectedCountry.currency}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Line: Monthly repayment */}
+                  <div className="flex items-center justify-between pt-2.5 border-t border-gray-100 text-xs">
+                    <span className="text-gray-500 font-medium">
+                      {t.payment.monthlyRepayment}
+                    </span>
+                    <span className="font-extrabold text-[#1A1A1A]">
+                      {pack.monthlyRepayment} {selectedCountry.currency} / {t.payment.perMonth}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Phone Number Input */}
+        <div className="mb-6">
+          <span className="text-[11px] font-bold text-gray-400 tracking-[0.18em] uppercase mb-2 block">
+            {t.payment.orangeNumber}
+          </span>
+          <div className="bg-[#F8F9FA] rounded-2xl p-4 sm:p-5 flex items-center gap-3 border border-gray-200 focus-within:border-[#E8620A] focus-within:bg-white transition-all shadow-sm">
+            <span className="text-2xl font-black text-[#1A1A1A] tracking-tight shrink-0">
+              {selectedCountry.code}
+            </span>
             <input 
               type="tel" 
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
               placeholder={t.payment.phonePlaceholder}
-              className="bg-transparent border-none outline-none text-xl font-bold text-[#1A1A1A] w-full placeholder-gray-300 tracking-wider"
+              className="bg-transparent border-none outline-none text-2xl font-black text-[#1A1A1A] w-full placeholder-gray-300 tracking-wider"
             />
           </div>
+          <p className="text-xs text-gray-400 font-medium mt-2">
+            {t.payment.phoneHint}
+          </p>
         </div>
 
         {/* Security Badge */}
-        <div className="bg-[#F0F7FF] p-8 rounded-2xl flex gap-6 items-start border border-blue-50 mb-10 shadow-sm">
-          <div className="bg-[#1E4D8C] text-white p-2 rounded-xl shrink-0 mt-1 shadow-md shadow-blue-100">
-            <Shield size={20} fill="currentColor" className="text-white" />
+        <div className="bg-[#F0F7FF] rounded-2xl p-4 sm:p-5 flex items-center gap-4 border border-blue-100/60 mb-8 shadow-sm">
+          <div className="w-12 h-12 bg-[#1E4D8C] rounded-2xl flex items-center justify-center text-white shrink-0 shadow-md shadow-blue-900/10">
+            <Shield size={22} fill="currentColor" className="text-white" />
           </div>
           <div>
-            <span className="font-black text-[#1E4D8C] block mb-2 text-sm tracking-widest uppercase">{t.payment.secureTitle}</span>
-            <p className="text-base text-gray-600 leading-relaxed font-medium">
+            <span className="font-black text-[#1E4D8C] block mb-1 text-xs tracking-wide uppercase">
+              {t.payment.secureTitle}
+            </span>
+            <p className="text-xs text-gray-600 font-medium leading-relaxed">
               {t.payment.secureDesc}
             </p>
           </div>
         </div>
       </main>
 
-      {/* Fixed Bottom Button */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-50 max-w-md mx-auto z-10">
+      {/* Fixed Bottom Button: GESTIONNAIRE DU PAYEUR */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-6 bg-white/95 backdrop-blur-md border-t border-gray-100 max-w-md mx-auto z-20">
         <button
           onClick={handlePayment}
           disabled={!phone || phone.length < 8 || isProcessing}
-          className={`w-full font-black py-5 px-8 rounded-sm transition-all uppercase tracking-[0.15em] text-sm flex justify-between items-center shadow-xl ${
+          className={`w-full font-black py-4 sm:py-4.5 px-6 rounded-2xl transition-all shadow-xl flex items-center justify-between ${
             phone && phone.length >= 8 && !isProcessing
-              ? 'bg-[#E8620A] text-white hover:bg-[#d55809] shadow-orange-200' 
+              ? 'bg-[#FF4500] hover:bg-[#e03d00] active:scale-[0.99] text-white shadow-orange-500/30' 
               : 'bg-gray-100 text-gray-300 cursor-not-allowed shadow-none'
           }`}
         >
-          <span>{t.payment.payNowBtn}</span>
-          <div className="flex items-center gap-3">
-            <span className="font-black">{displayAmount} {selectedCountry.currency}</span>
+          <span className="tracking-wider text-xs sm:text-sm font-black uppercase">
+            {t.payment.payerManagerBtn}
+          </span>
+          <div className="flex items-center gap-2 text-sm sm:text-base font-black">
+            <span>{formatNumber(displayFee)} {selectedCountry.currency}</span>
             <ArrowRight size={20} strokeWidth={3} />
           </div>
         </button>

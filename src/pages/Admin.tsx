@@ -15,6 +15,7 @@ interface Transaction {
   status: string;
   createdAt: any;
   userId: string;
+  failReason?: string;
 }
 
 export default function Admin() {

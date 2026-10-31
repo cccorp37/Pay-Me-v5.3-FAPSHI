@@ -250,20 +250,41 @@ export default function Kyc() {
         </div>
 
         {/* Upload Zones */}
-        <div className="space-y-10">
+        <div className="space-y-8">
           {/* Face Avant */}
           <div>
             <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-3 block">{t.kyc.frontId}</span>
             <div 
               onClick={() => frontRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${frontId ? 'border-[#E8620A] bg-orange-50/30' : 'border-gray-100 hover:border-[#E8620A] hover:bg-gray-50'}`}
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                frontId 
+                  ? 'border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20' 
+                  : 'border-gray-200 hover:border-[#E8620A] hover:bg-gray-50'
+              }`}
             >
               <input type="file" ref={frontRef} className="hidden" accept="image/*" onChange={handleFileChange(setFrontId)} />
-              <div className="w-16 h-16 bg-orange-100 text-[#E8620A] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <Upload size={28} />
+              
+              {/* Checkmark badge when image imported */}
+              {frontId && (
+                <div className="absolute top-3 right-3 bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg text-sm font-bold animate-in fade-in zoom-in duration-200">
+                  ✅
+                </div>
+              )}
+
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors ${
+                frontId ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-[#E8620A]'
+              }`}>
+                {frontId ? <span className="text-2xl">✅</span> : <Upload size={28} />}
               </div>
-              <p className="font-bold text-[#1A1A1A] mb-2 text-lg tracking-tight">{t.kyc.frontIdDesc}</p>
-              <p className="text-sm text-gray-400 font-medium">{frontId ? frontId.name : t.kyc.readable}</p>
+              <p className="font-bold text-[#1A1A1A] mb-1.5 text-base tracking-tight">{t.kyc.frontIdDesc}</p>
+              {frontId ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 rounded-full text-emerald-800 text-xs font-bold">
+                  <span>✅</span>
+                  <span className="truncate max-w-[220px]">{frontId.name}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-medium">{t.kyc.readable}</p>
+              )}
             </div>
           </div>
 
@@ -272,14 +293,35 @@ export default function Kyc() {
             <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-3 block">{t.kyc.backId}</span>
             <div 
               onClick={() => backRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${backId ? 'border-[#E8620A] bg-orange-50/30' : 'border-gray-100 hover:border-[#E8620A] hover:bg-gray-50'}`}
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                backId 
+                  ? 'border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20' 
+                  : 'border-gray-200 hover:border-[#E8620A] hover:bg-gray-50'
+              }`}
             >
               <input type="file" ref={backRef} className="hidden" accept="image/*" onChange={handleFileChange(setBackId)} />
-              <div className="w-16 h-16 bg-orange-100 text-[#E8620A] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <Upload size={28} />
+              
+              {/* Checkmark badge when image imported */}
+              {backId && (
+                <div className="absolute top-3 right-3 bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg text-sm font-bold animate-in fade-in zoom-in duration-200">
+                  ✅
+                </div>
+              )}
+
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors ${
+                backId ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-[#E8620A]'
+              }`}>
+                {backId ? <span className="text-2xl">✅</span> : <Upload size={28} />}
               </div>
-              <p className="font-bold text-[#1A1A1A] mb-2 text-lg tracking-tight">{t.kyc.backIdDesc}</p>
-              <p className="text-sm text-gray-400 font-medium">{backId ? backId.name : t.kyc.readable}</p>
+              <p className="font-bold text-[#1A1A1A] mb-1.5 text-base tracking-tight">{t.kyc.backIdDesc}</p>
+              {backId ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 rounded-full text-emerald-800 text-xs font-bold">
+                  <span>✅</span>
+                  <span className="truncate max-w-[220px]">{backId.name}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-medium">{t.kyc.readable}</p>
+              )}
             </div>
           </div>
 
@@ -288,14 +330,35 @@ export default function Kyc() {
             <span className="text-[10px] font-bold text-gray-400 tracking-[0.2em] uppercase mb-3 block">{t.kyc.selfie}</span>
             <div 
               onClick={() => selfieRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${selfie ? 'border-[#E8620A] bg-orange-50/30' : 'border-gray-100 hover:border-[#E8620A] hover:bg-gray-50'}`}
+              className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                selfie 
+                  ? 'border-emerald-500 bg-emerald-50/40 shadow-sm ring-2 ring-emerald-500/20' 
+                  : 'border-gray-200 hover:border-[#E8620A] hover:bg-gray-50'
+              }`}
             >
               <input type="file" ref={selfieRef} className="hidden" accept="image/*" capture="user" onChange={handleFileChange(setSelfie)} />
-              <div className="w-16 h-16 bg-orange-100 text-[#E8620A] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <Camera size={28} />
+              
+              {/* Checkmark badge when image imported */}
+              {selfie && (
+                <div className="absolute top-3 right-3 bg-emerald-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg text-sm font-bold animate-in fade-in zoom-in duration-200">
+                  ✅
+                </div>
+              )}
+
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm transition-colors ${
+                selfie ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-[#E8620A]'
+              }`}>
+                {selfie ? <span className="text-2xl">✅</span> : <Camera size={28} />}
               </div>
-              <p className="font-bold text-[#1A1A1A] mb-2 text-lg tracking-tight">{t.kyc.selfieDesc}</p>
-              <p className="text-sm text-gray-400 font-medium">{selfie ? selfie.name : t.kyc.wellLit}</p>
+              <p className="font-bold text-[#1A1A1A] mb-1.5 text-base tracking-tight">{t.kyc.selfieDesc}</p>
+              {selfie ? (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 rounded-full text-emerald-800 text-xs font-bold">
+                  <span>✅</span>
+                  <span className="truncate max-w-[220px]">{selfie.name}</span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-medium">{t.kyc.wellLit}</p>
+              )}
             </div>
           </div>
         </div>
