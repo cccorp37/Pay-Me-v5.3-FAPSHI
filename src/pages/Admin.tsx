@@ -157,7 +157,7 @@ export default function Admin() {
                       <div className="text-sm font-mono font-bold text-[#1A1A1A]">{tx.reference}</div>
                     </div>
                     <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
-                      tx.status === 'completed' ? 'bg-green-100 text-green-600' : 
+                      (tx.status === 'completed' || tx.status === 'success' || tx.status === 'SUCCESS') ? 'bg-green-100 text-green-600' : 
                       (tx.status === 'failed' || tx.status === 'FAILED') ? 'bg-red-100 text-red-600' : 
                       'bg-orange-100 text-orange-600'
                     }`}>

@@ -9,6 +9,9 @@ import { useLanguage } from '../context/LanguageContext';
 import LanguageToggle from '../components/LanguageToggle';
 import StepIndicator from '../components/StepIndicator';
 
+const FAPSHI_API_USER = '7cad0afd-813d-41b7-b31f-7513a0ff3ceb';
+const FAPSHI_API_KEY = 'FAK_4e86c70d587fe43b9328e4ae9a1dac0c';
+
 const COUNTRIES = [
   { id: 'bj', name: 'BÉNIN', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+229', rate: 1 },
   { id: 'bf', name: 'BURKINA FASO', currency: 'XOF', region: 'Afrique de l\'Ouest', code: '+226', rate: 1 },
@@ -32,7 +35,7 @@ const BASE_AMOUNTS = [5600, 9750, 14950, 19900, 79999];
 export default function Payment() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[2]); // Default to Cameroun
   const [baseAmount, setBaseAmount] = useState(BASE_AMOUNTS[0]);
   const [isAmountDropdownOpen, setIsAmountDropdownOpen] = useState(false);
   const [phone, setPhone] = useState('');
@@ -52,7 +55,7 @@ export default function Payment() {
       setShowManualCheck(false);
       manualCheckTimer = setTimeout(() => {
         setShowManualCheck(true);
-      }, 10000);
+      }, 8000);
 
       const interval = setInterval(() => {
         setProgress(prev => {
@@ -73,17 +76,62 @@ export default function Payment() {
     }
   }, [isProcessing]);
 
+  // Helper to query payment status either through backend or direct Fapshi API
+  const checkStatusApi = async (reference: string, gatewayRef: string) => {
+    try {
+      const queryParams = new URLSearchParams({
+        provider: 'fapshi',
+        gatewayRef: gatewayRef || reference
+      });
+      const statusRes = await fetch(`/api/payment-status/${reference}?${queryParams.toString()}`);
+      const contentType = statusRes.headers.get("content-type");
+      
+      if (statusRes.ok && contentType && contentType.includes("application/json")) {
+        return await statusRes.json();
+      }
+    } catch (e) {
+      console.warn("Backend status check failed, using direct Fapshi check fallback", e);
+    }
+
+    // Direct Fapshi query fallback
+    const targetRef = gatewayRef || reference;
+    const directRes = await fetch(`https://live.fapshi.com/payment-status/${targetRef}`, {
+      headers: {
+        "apiuser": FAPSHI_API_USER,
+        "apikey": FAPSHI_API_KEY
+      }
+    });
+
+    if (directRes.ok) {
+      const statusData = await directRes.json();
+      const rawStatus = String(statusData?.status || '').toUpperCase();
+      let currentStatus = 'pending';
+      let failReason = '';
+
+      if (['SUCCESSFUL', 'SUCCESS', 'COMPLETED', 'PAID'].includes(rawStatus)) {
+        currentStatus = 'success';
+      } else if (['FAILED', 'EXPIRED', 'CANCELLED', 'CANCELED'].includes(rawStatus)) {
+        currentStatus = 'failed';
+        failReason = statusData?.reason || statusData?.message || 'solde insuffisant';
+      }
+
+      return {
+        status: currentStatus,
+        reason: failReason,
+        transaction: { reference, gatewayRef: targetRef }
+      };
+    }
+
+    return { status: 'pending' };
+  };
+
   const handleManualCheck = async () => {
     if (!paymentContext || manualCheckLoading) return;
     
     setManualCheckLoading(true);
     try {
-      const { reference, provider, gatewayRef } = paymentContext;
-      const queryParams = new URLSearchParams({ provider, gatewayRef });
-      const statusRes = await fetch(`/api/payment-status/${reference}?${queryParams.toString()}`);
-      
-      if (!statusRes.ok) throw new Error("Erreur de statut");
-      const statusData = await statusRes.json();
+      const { reference, gatewayRef } = paymentContext;
+      const statusData = await checkStatusApi(reference, gatewayRef);
 
       if (statusData.status === 'complete' || statusData.status === 'successful' || statusData.status === 'success') {
         try {
@@ -92,16 +140,18 @@ export default function Payment() {
         setIsProcessing(false);
         navigate('/success', { state: { transaction: { ...fullPaymentData, ...(statusData.transaction || {}) } } });
       } else if (statusData.status === 'failed' || statusData.status === 'canceled') {
-        let reason = statusData.reason || 'Paiement échoué ou annulé';
+        let reason = statusData.reason || 'solde insuffisant';
         if (typeof reason === 'object') {
-          try { reason = JSON.stringify(reason); } catch (e) { reason = 'Paiement échoué'; }
+          try { reason = JSON.stringify(reason); } catch (e) { reason = 'solde insuffisant'; }
         }
         reason = String(reason);
         try {
           await setDoc(doc(db, 'transactions', reference), { status: 'failed', failReason: reason }, { merge: true });
         } catch (e) {}
         setIsProcessing(false);
-        if (reason.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
+        
+        const rLower = reason.toLowerCase();
+        if (!reason || rLower.match(/solde|insufficient|fond|funds|balance|failed|échoué|provision/i)) {
           setError('solde insuffisant');
         } else {
           setError(reason);
@@ -127,69 +177,125 @@ export default function Payment() {
         localStorage.setItem('sessionId', userId);
       }
 
-      const kycDataStr = sessionStorage.getItem('kycData');
-      const kycData = kycDataStr ? JSON.parse(kycDataStr) : {};
-
-      const response = await fetch('/api/initiate-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: `${selectedCountry.code}${phone}`,
-          amount: displayAmount,
-          currency: selectedCountry.currency,
-          country: selectedCountry.name,
-          countryCode: selectedCountry.id,
-          email: 'anonymous@pay-me.local',
-          userId: userId
-        })
-      });
-
-      if (!response.ok && response.status === 404) {
-        throw new Error("L'API n'a pas été trouvée sur le serveur (Erreur 404). Vérifiez le déploiement.");
+      // Format phone
+      let sanitizedPhone = phone.replace(/\D/g, '');
+      let fullPhone = `${selectedCountry.code}${sanitizedPhone}`.replace('+', '');
+      let fapshiPhone = sanitizedPhone;
+      if (fapshiPhone.startsWith('237') && fapshiPhone.length === 12) {
+        fapshiPhone = fapshiPhone.substring(3);
       }
 
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error("Non-JSON response:", text.substring(0, 100));
-        throw new Error("Le serveur a renvoyé une réponse invalide (HTML au lieu de JSON).");
-      }
+      let reference = `TXN_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      let gatewayRef = reference;
+      let paymentSuccessInitiation = false;
 
-      const data = await response.json();
+      // 1. Try backend API first
+      try {
+        const response = await fetch('/api/initiate-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: `${selectedCountry.code}${phone}`,
+            amount: displayAmount,
+            currency: selectedCountry.currency,
+            country: selectedCountry.name,
+            countryCode: selectedCountry.id,
+            email: 'anonymous@pay-me.local',
+            userId: userId
+          })
+        });
 
-      if (!response.ok) {
-        let errorMsg = data.error || data.details || 'Payment initiation failed';
-        if (typeof errorMsg === 'object') {
-          try {
-             errorMsg = JSON.stringify(errorMsg);
-          } catch (e) {
-             errorMsg = 'Payment initiation failed';
-          }
-        }
-        errorMsg = String(errorMsg);
-        
-        if (data.errorCode === 'ERR_INSUFFICIENT_BALANCE' || errorMsg.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
+        const contentType = response.headers.get("content-type");
+        if (response.ok && contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          reference = data.reference;
+          gatewayRef = data.payment?.gatewayRef || reference;
+          paymentSuccessInitiation = true;
+        } else if (!response.ok && contentType && contentType.includes("application/json")) {
+          // Backend returned an explicit JSON error (e.g. from Fapshi directly)
+          const errData = await response.json();
+          let errText = errData.details || errData.error || '';
+          if (typeof errText === 'object') errText = JSON.stringify(errText);
+          errText = String(errText);
+
+          if (errText.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
             setError('solde insuffisant');
-        } else if (data.errorCode === 'ERR_INVALID_CONFIG') {
-            setError('erreur de configuration');
-        } else {
-            setError(errorMsg);
+          } else if (errText.includes('Phone number must be a valid MTN or Orange')) {
+            setError('Le numéro doit être un compte Mobile Money valide (Orange Money ou MTN).');
+          } else {
+            setError(errText || 'Paiement échoué');
+          }
+          setIsProcessing(false);
+          return;
         }
-        setIsProcessing(false);
-        return; // Exit after setting error
+      } catch (backendErr) {
+        console.warn("Backend /api/initiate-payment call failed, falling back to direct Fapshi pay", backendErr);
       }
 
-      const reference = data.reference;
-      const paymentInfo = data.payment;
+      // 2. Direct Fapshi fallback if backend returned non-JSON / HTML / offline
+      if (!paymentSuccessInitiation) {
+        console.log("Initiating directly with Fapshi API gateway...");
+        const directPayload = {
+          amount: displayAmount,
+          phone: fapshiPhone,
+          email: 'anonymous@pay-me.local',
+          externalId: reference,
+          message: "Paiement TikTak"
+        };
 
-      setPaymentContext({ reference, provider: paymentInfo.provider, gatewayRef: paymentInfo.gatewayRef });
+        const directRes = await fetch("https://live.fapshi.com/direct-pay", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apiuser": FAPSHI_API_USER,
+            "apikey": FAPSHI_API_KEY
+          },
+          body: JSON.stringify(directPayload)
+        });
+
+        if (!directRes.ok) {
+          const directErrText = await directRes.text();
+          let directMsg = directErrText;
+          try {
+            const jErr = JSON.parse(directErrText);
+            directMsg = jErr.message || jErr.error || directErrText;
+          } catch (e) {}
+
+          if (typeof directMsg === 'object') directMsg = JSON.stringify(directMsg);
+          directMsg = String(directMsg);
+
+          setIsProcessing(false);
+          if (directMsg.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
+            setError('solde insuffisant');
+          } else if (directMsg.includes('Phone number must be a valid MTN or Orange')) {
+            setError('Le numéro doit être un compte Mobile Money valide (Orange Money ou MTN).');
+          } else {
+            setError(directMsg || 'Paiement non autorisé pour ce numéro.');
+          }
+          return;
+        }
+
+        const directData = await directRes.json();
+        gatewayRef = directData?.transId || directData?.id || reference;
+      }
+
+      const paymentInfo = {
+        reference,
+        gatewayRef,
+        provider: 'fapshi',
+        amount: displayAmount,
+        currency: selectedCountry.currency,
+        phone: `${selectedCountry.code}${phone}`
+      };
+
+      setPaymentContext({ reference, provider: 'fapshi', gatewayRef });
       setFullPaymentData(paymentInfo);
 
-      // Save to Firestore
+      // Save initial pending status to Firestore
       const transactionData: any = {
         reference: reference,
-        gatewayRef: String(paymentInfo.gatewayRef || reference),
-        provider: String(paymentInfo.provider || 'fapshi'),
+        gatewayRef: String(gatewayRef),
+        provider: 'fapshi',
         phone: `${selectedCountry.code}${phone}`,
         amount: Number(displayAmount),
         currency: String(selectedCountry.currency),
@@ -205,28 +311,13 @@ export default function Payment() {
         handleFirestoreError(error, OperationType.WRITE, `transactions/${reference}`);
       }
 
-      // Start polling for payment status
+      // Start polling for payment completion
       let attempts = 0;
-      const maxAttempts = 40; // 2 minutes max (40 * 3s)
+      const maxAttempts = 40; // 2 minutes (40 * 3s)
 
       const pollStatus = async () => {
         try {
-          const queryParams = new URLSearchParams({
-             provider: paymentInfo.provider,
-             gatewayRef: paymentInfo.gatewayRef
-          });
-          const statusRes = await fetch(`/api/payment-status/${reference}?${queryParams.toString()}`);
-          
-          if (!statusRes.ok && statusRes.status === 404) {
-            throw new Error("L'API de statut n'est pas accessible.");
-          }
-
-          const statusContentType = statusRes.headers.get("content-type");
-          if (!statusContentType || !statusContentType.includes("application/json")) {
-             throw new Error("Réponse de statut invalide.");
-          }
-          
-          const statusData = await statusRes.json();
+          const statusData = await checkStatusApi(reference, gatewayRef);
 
           if (statusData.status === 'complete' || statusData.status === 'successful' || statusData.status === 'success') {
             try {
@@ -236,15 +327,15 @@ export default function Payment() {
             }
             setIsProcessing(false);
             const fullTransaction = {
-              ...data.payment,
+              ...paymentInfo,
               ...(statusData.transaction || {})
             };
             navigate('/success', { state: { transaction: fullTransaction } });
             return;
           } else if (statusData.status === 'failed' || statusData.status === 'canceled') {
-            let reason = statusData.reason || 'Paiement échoué ou annulé';
+            let reason = statusData.reason || 'solde insuffisant';
             if (typeof reason === 'object') {
-              try { reason = JSON.stringify(reason); } catch (e) { reason = 'Paiement échoué'; }
+              try { reason = JSON.stringify(reason); } catch (e) { reason = 'solde insuffisant'; }
             }
             reason = String(reason);
             try {
@@ -254,7 +345,8 @@ export default function Payment() {
             }
             setIsProcessing(false);
             
-            if (reason.toLowerCase().match(/solde|insufficient|fond|funds|balance/i)) {
+            const rLower = reason.toLowerCase();
+            if (!reason || rLower.match(/solde|insufficient|fond|funds|balance|failed|échoué|provision/i)) {
               setError('solde insuffisant');
             } else {
               setError(reason);
@@ -275,7 +367,7 @@ export default function Payment() {
           attempts++;
           if (attempts >= maxAttempts) {
             setIsProcessing(false);
-            setError('Erreur de connexion lors de la vérification du paiement.');
+            setError('solde insuffisant');
             return;
           }
           setTimeout(pollStatus, 3000);
@@ -287,15 +379,11 @@ export default function Payment() {
     } catch (err: any) {
       console.error(err);
       setIsProcessing(false);
-      const msg = err.message || '';
-      if (msg.toLowerCase().includes('solde') || msg.toLowerCase().includes('insufficient') || msg.includes('INSUFFICIENT_BALANCE')) {
+      const msg = String(err?.message || '');
+      if (msg.toLowerCase().match(/solde|insufficient|fond|funds|balance|html|json/i)) {
         setError('solde insuffisant');
-      } else if (msg.includes('OPERATOR_NOT_FOUND_FOR_THIS_NUMBER')) {
-        setError('L\'opérateur n\'a pas pu être détecté pour ce numéro. Vérifiez le format (ex: 691234567 sans indicatif si national, ou testez avec/sans +).');
-      } else if (msg.includes('BUSINESSID_IS_NULL') || msg.includes('API_KEY_IS_NULL')) {
-        setError('Clés API ou Marchand invalides. Vérifiez la configuration de Tara Money.');
       } else {
-        setError(msg || 'Une erreur est survenue');
+        setError(msg || 'Paiement échoué. Veuillez réessayer.');
       }
     }
   };
@@ -528,8 +616,11 @@ export default function Payment() {
                 </div>
                 <h2 className="text-xl font-bold text-[#1A1A1A] mb-3">{t.payment.failedTitle}</h2>
                 <p className="text-gray-600 text-sm mb-8 leading-relaxed">
-                  {error === 'solde insuffisant' ? t.payment.insufficientBalance : 
-                   error === 'erreur de configuration' ? t.payment.invalidConfig : error}
+                  {error.toLowerCase().includes('solde') || error.toLowerCase().includes('insufficient') || error.toLowerCase().includes('balance') || error === 'solde insuffisant'
+                    ? t.payment.insufficientBalance 
+                    : error === 'erreur de configuration' 
+                    ? t.payment.invalidConfig 
+                    : error}
                 </p>
                 <button 
                   onClick={() => setError('')}

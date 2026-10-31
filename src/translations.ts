@@ -177,6 +177,7 @@ export const translations = {
       bankGrade: "BANK-GRADE SECURITY ENABLED",
       failedTitle: "Payment Failed",
       insufficientBalance: "payer account balance insufficient. Please recharge your account and restart the transaction",
+      invalidConfig: "Technical payment error. Please contact support.",
       timeoutError: "Transaction timeout expired",
     },
     success: {
